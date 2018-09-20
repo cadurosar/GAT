@@ -135,3 +135,50 @@ def sp_cttn_head(seq, out_sz, adj_mat, nnz, activation, nb_nodes,
 
         # activation
         return activation(ret)
+
+def sp_gcn_head(seq, out_sz, adj_mat, nnz, activation, nb_nodes,
+                 in_drop=0.0, coef_drop=0.0, residual=False, use_bias=True,
+                 intra_drop=None, intra_activation=False, softmax_norm=False):
+
+    if intra_drop is None:
+        intra_drop = in_drop
+    
+    with tf.name_scope('sp_contraction'):
+        if in_drop != 0.0:
+            seq = tf.nn.dropout(seq, 1.0 - in_drop)
+
+        # right operand SXW
+        seq_fts = tf.layers.conv1d(seq, out_sz, 1, use_bias=False)
+        if intra_activation:
+            seq_fts = activation(seq_fts, 1.0 - intra_drop)
+        if intra_drop != 0.0:
+            seq_fts = tf.nn.dropout(seq_fts, 1.0 - intra_drop)
+
+        # left operand SXW        
+        scheme = adj_mat
+        if softmax_norm:
+            scheme = tf.sparse_softmax(scheme)
+        if coef_drop != 0.0:
+            scheme = tf.SparseTensor(indices=scheme.indices,
+                    values=tf.nn.dropout(scheme.values, 1.0 - coef_drop),
+                    dense_shape=scheme.dense_shape)
+        scheme = tf.sparse_reshape(scheme, [nb_nodes, nb_nodes])
+        seq_fts = tf.squeeze(seq_fts)
+        vals = tf.sparse_tensor_dense_matmul(scheme, seq_fts)
+        vals = tf.expand_dims(vals, axis=0)
+        vals.set_shape([1, nb_nodes, out_sz])
+
+        # bias
+        if use_bias:
+            ret = tf.contrib.layers.bias_add(vals)
+
+        # residual connection
+        if residual:
+            if seq.shape[-1] != ret.shape[-1]:
+                ret = ret + conv1d(seq, ret.shape[-1], 1)
+            else:
+                seq_fts = ret + seq
+
+        # activation
+        return activation(ret)
+        
