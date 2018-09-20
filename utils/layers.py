@@ -93,7 +93,7 @@ def sp_cttn_head(seq, out_sz, adj_mat, activation, nb_nodes, in_drop=0.0, coef_d
         seq_fts = tf.layers.conv1d(seq, out_sz, 1, use_bias=False)
 
         #input shape=(batch_size, nb_nodes, ft_size)
-        scheme_kernel = tf.get_variable('scheme_kernel', adj_mat.values.shape,
+        scheme_kernel = tf.get_variable('scheme_kernel', (nb_nodes, nb_nodes),
                                         trainable = True)
         scheme = tf.SparseTensor(indices = adj_mat.indices,
             values = scheme_kernel,
