@@ -20,7 +20,10 @@ l2_coef = 0.0005  # weight decay
 hid_units = [8] # numbers of hidden units per each attention head in each layer
 n_heads = [8, 1] # additional entry for the output layer
 residual = False
+save_best = True
 nonlinearity = tf.nn.elu
+attn_drop_value = 0.5
+ffd_drop_value = 0.5
 model = SpGCT
 
 print('Dataset: ' + dataset)
@@ -53,7 +56,9 @@ val_mask = val_mask[np.newaxis]
 test_mask = test_mask[np.newaxis]
 
 if sparse:
-    biases = process.preprocess_adj_bias(adj)
+    #biases = process.preprocess_adj_bias(adj)
+    biases = process.preprocess_adj(adj)
+    nnz = len(biases[1])
 else:
     adj = adj.todense()
     adj = adj[np.newaxis]
@@ -76,7 +81,7 @@ with tf.Graph().as_default():
         is_train = tf.placeholder(dtype=tf.bool, shape=())
 
     logits = model.inference(ftr_in, nb_classes, nb_nodes, is_train,
-                                attn_drop, ffd_drop,
+                                attn_drop, ffd_drop, nnz,
                                 bias_mat=bias_in,
                                 hid_units=hid_units, n_heads=n_heads,
                                 residual=residual, activation=nonlinearity)
@@ -88,7 +93,8 @@ with tf.Graph().as_default():
 
     train_op = model.training(loss, lr, l2_coef)
 
-    saver = tf.train.Saver()
+    if save_best:
+        saver = tf.train.Saver()
 
     init_op = tf.group(tf.global_variables_initializer(), tf.local_variables_initializer())
 
@@ -121,7 +127,7 @@ with tf.Graph().as_default():
                         lbl_in: y_train[tr_step*batch_size:(tr_step+1)*batch_size],
                         msk_in: train_mask[tr_step*batch_size:(tr_step+1)*batch_size],
                         is_train: True,
-                        attn_drop: 0.6, ffd_drop: 0.6})
+                        attn_drop: attn_drop_value, ffd_drop: ffd_drop_value})
                 train_loss_avg += loss_value_tr
                 train_acc_avg += acc_tr
                 tr_step += 1
@@ -154,7 +160,8 @@ with tf.Graph().as_default():
                 if val_acc_avg/vl_step >= vacc_mx and val_loss_avg/vl_step <= vlss_mn:
                     vacc_early_model = val_acc_avg/vl_step
                     vlss_early_model = val_loss_avg/vl_step
-                    saver.save(sess, checkpt_file)
+                    if save_best:
+                        saver.save(sess, checkpt_file)
                 vacc_mx = np.max((val_acc_avg/vl_step, vacc_mx))
                 vlss_mn = np.min((val_loss_avg/vl_step, vlss_mn))
                 curr_step = 0
@@ -170,7 +177,8 @@ with tf.Graph().as_default():
             val_loss_avg = 0
             val_acc_avg = 0
 
-        saver.restore(sess, checkpt_file)
+        if save_best:
+            saver.restore(sess, checkpt_file)
 
         ts_size = features.shape[0]
         ts_step = 0
