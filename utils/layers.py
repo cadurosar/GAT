@@ -84,3 +84,40 @@ def sp_attn_head(seq, out_sz, adj_mat, activation, nb_nodes, in_drop=0.0, coef_d
 
         return activation(ret)  # activation
 
+# neural contraction
+def sp_cttn_head(seq, out_sz, adj_mat, activation, nb_nodes, in_drop=0.0, coef_drop=0.0, residual=False):
+    with tf.name_scope('sp_contraction'):
+        if in_drop != 0.0:
+            seq = tf.nn.dropout(seq, 1.0 - in_drop)
+
+        seq_fts = tf.layers.conv1d(seq, out_sz, 1, use_bias=False)
+
+        #input shape=(batch_size, nb_nodes, ft_size)
+        scheme_kernel = tf.get_variable('scheme_kernel', adj_mat.values.shape,
+                                        trainable = True)
+        scheme = tf.SparseTensor(indices = adj_mat.indices,
+            values = scheme_kernel,
+            dense_shape = adj_mat.dense_shape)
+        """
+        scheme = tf.sparse_softmax(scheme)
+        eye = tf.SparseTensor(indices = [[i,i] for i in nb_nodes],
+              values = [1 for i in nb_nodes],
+              dense_shape = adj_mat.dense_shape)
+        scheme = tf.sparse_add(scheme, eye)
+        """
+        scheme = tf.sparse_reshape(scheme, [nb_nodes, nb_nodes])
+        seq_fts = tf.squeeze(seq_fts)
+        vals = tf.sparse_tensor_dense_matmul(scheme, seq_fts)
+        vals = tf.expand_dims(vals, axis=0)
+        vals.set_shape([1, nb_nodes, out_sz])
+        ret = tf.contrib.layers.bias_add(vals)
+
+        # residual connection
+        if residual:
+            if seq.shape[-1] != ret.shape[-1]:
+                ret = ret + conv1d(seq, ret.shape[-1], 1) # activation
+            else:
+                seq_fts = ret + seq
+
+        return activation(ret)  # activation
+
