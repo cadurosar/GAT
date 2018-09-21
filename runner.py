@@ -1,4 +1,4 @@
-import time
+import time, sys
 import scipy.sparse as sp
 import numpy as np
 import tensorflow as tf
@@ -12,11 +12,31 @@ parser = ap.ArgumentParser(description='Run 100 times and return mean acc +- std
 parser.add_argument('--dataset', '-d', default='cora')
 parser.add_argument('--model', '-m', default='gct')
 parser.add_argument('--patience', '-p', type=int, default=100)
+parser.add_argument('--hiddens', '-hu', nargs='+', type=int, default=[16])
+parser.add_argument('--nheads', '-n', nargs='+', type=int, default=[1, 1])
+parser.add_argument('--savebest', '-b', type=bool, default=True)
+parser.add_argument('--activation', '-a', default='relu')
+parser.add_argument('--intraactivation', '-ia', default='None')
+parser.add_argument('--indropout', '-id', type=float, default=0.5)
+parser.add_argument('--rightdropout', '-rd', type=float, default=0.5)
+parser.add_argument('--leftdropout', '-ld', type=float, default=0.5)
+parser.add_argument('--snorm', '-s', default='softmax')
+parser.add_argument('--nruns', '-r', type=int, default=100)
+parser.add_argument('--usebias', '-ub', type=bool, default=True)
+#parser.add_argument('--std_init', '-std', default='None')
 
 args = parser.parse_args()
 
 checkpt_file = 'pre_trained/runner.ckpt'
-dataset = args.model
+dataset = args.dataset
+if args.model == 'gct':
+    model = SpGCT
+elif args.model == 'gcn':
+    model = SpGCN
+elif args.model == 'gat':
+    model = SpGAT
+else:
+    sys.exit(args.model + ' model unknown')
 
 # training params
 batch_size = 1
@@ -24,15 +44,44 @@ nb_epochs = 100000
 patience = args.patience
 lr = 0.005  # learning rate
 l2_coef = 0.0005  # weight decay
-hid_units = [16] # numbers of hidden units per each attention head in each layer
-n_heads = [1, 1] # additional entry for the output layer
+hid_units = args.hiddens # numbers of hidden units per each attention head in each layer
+n_heads = args.nheads # additional entry for the output layer
 residual = False
-save_best = True
-nonlinearity = tf.nn.relu
-attn_drop_value = 0.5
-ffd_drop_value = 0.5
-model = SpGCN
-scheme_norm = tf.sparse_softmax
+save_best = args.savebest
+if args.activation == 'elu':
+    nonlinearity = tf.nn.elu
+elif args.activation == 'relu':
+    nonlinearity = tf.nn.relu
+else:
+    sys.exit(args.activation + ' activation unknown')
+if args.intraactivation == 'None':
+    nonlinearity2 = None
+elif args.intraactivation == 'elu':
+    nonlinearity2 = tf.nn.elu
+elif args.intraactivation == 'relu':
+    nonlinearity2 = tf.nn.relu
+else:
+    sys.exit(args.intraactivation + ' activation unknown')
+attn_drop_value = args.leftdropout
+ffd_drop_value = args.indropout
+intra_drop_value = args.rightdropout
+if args.snorm == 'softmax':
+    scheme_norm = tf.sparse_softmax
+    #scheme_norm = lambda x: tf.sparse_transpose(tf.sparse_softmax(tf.sparse_transpose(x)))
+elif args.snorm == 'sum':
+    def sparse_norm(x):
+        rsum = tf.sparse_reduce_sum_sparse(x, axis=0, keep_dims=True)
+        tf.SparseTensor(indices=x.indices,
+                    values=x.values / rsum.values,
+                    dense_shape=x.dense_shape)
+        return x
+    scheme_norm = sparse_norm
+elif args.snorm == 'None':
+    scheme_norm = None
+else:
+    sys.exit(args.snorm + ' snorm unknown')
+scheme_init_std = None
+use_bias = args.usebias
 
 print('Dataset: ' + dataset)
 print('----- Opt. hyperparams -----')
@@ -45,8 +94,6 @@ print('nb. attention heads: ' + str(n_heads))
 print('residual: ' + str(residual))
 print('nonlinearity: ' + str(nonlinearity))
 print('model: ' + str(model))
-
-sparse = True
 
 adj, features, y_train, y_val, y_test, train_mask, val_mask, test_mask = process.load_data(dataset)
 features, spars = process.preprocess_features(features)
@@ -66,28 +113,27 @@ test_mask = test_mask[np.newaxis]
 biases = process.preprocess_adj_bias(adj) if args.model == 'gat' else process.preprocess_adj(adj)
 nnz = len(biases[1])
 
-for run_id in range(100):
+res_list = []
+for run_id in range(args.nruns):
     with tf.Graph().as_default():
         with tf.name_scope('input'):
             ftr_in = tf.placeholder(dtype=tf.float32, shape=(batch_size, nb_nodes, ft_size))
-            if sparse:
-                #bias_idx = tf.placeholder(tf.int64)
-                #bias_val = tf.placeholder(tf.float32)
-                #bias_shape = tf.placeholder(tf.int64)
-                bias_in = tf.sparse_placeholder(dtype=tf.float32)
-            else:
-                bias_in = tf.placeholder(dtype=tf.float32, shape=(batch_size, nb_nodes, nb_nodes))
+            bias_in = tf.sparse_placeholder(dtype=tf.float32)
             lbl_in = tf.placeholder(dtype=tf.int32, shape=(batch_size, nb_nodes, nb_classes))
             msk_in = tf.placeholder(dtype=tf.int32, shape=(batch_size, nb_nodes))
             attn_drop = tf.placeholder(dtype=tf.float32, shape=())
             ffd_drop = tf.placeholder(dtype=tf.float32, shape=())
+            intra_drop = tf.placeholder(dtype=tf.float32, shape=())
             is_train = tf.placeholder(dtype=tf.bool, shape=())
 
         logits = model.inference(ftr_in, nb_classes, nb_nodes, is_train,
                                     attn_drop, ffd_drop, nnz,
                                     bias_mat=bias_in,
                                     hid_units=hid_units, n_heads=n_heads,
-                                    residual=residual, activation=nonlinearity)
+                                    residual=residual, activation=nonlinearity,
+                                    intra_drop=intra_drop, intra_activation=nonlinearity2,
+                                    scheme_norm=scheme_norm, scheme_init_std=scheme_init_std,
+                                    use_bias=use_bias)
         log_resh = tf.reshape(logits, [-1, nb_classes])
         lab_resh = tf.reshape(lbl_in, [-1, nb_classes])
         msk_resh = tf.reshape(msk_in, [-1])
@@ -120,10 +166,7 @@ for run_id in range(100):
                 tr_size = features.shape[0]
 
                 while tr_step * batch_size < tr_size:
-                    if sparse:
-                        bbias = biases
-                    else:
-                        bbias = biases[tr_step*batch_size:(tr_step+1)*batch_size]
+                    bbias = biases
 
                     _, loss_value_tr, acc_tr = sess.run([train_op, loss, accuracy],
                         feed_dict={
@@ -132,7 +175,8 @@ for run_id in range(100):
                             lbl_in: y_train[tr_step*batch_size:(tr_step+1)*batch_size],
                             msk_in: train_mask[tr_step*batch_size:(tr_step+1)*batch_size],
                             is_train: True,
-                            attn_drop: attn_drop_value, ffd_drop: ffd_drop_value})
+                            attn_drop: attn_drop_value, ffd_drop: ffd_drop_value,
+                            intra_drop: intra_drop_value})
                     train_loss_avg += loss_value_tr
                     train_acc_avg += acc_tr
                     tr_step += 1
@@ -141,10 +185,7 @@ for run_id in range(100):
                 vl_size = features.shape[0]
 
                 while vl_step * batch_size < vl_size:
-                    if sparse:
-                        bbias = biases
-                    else:
-                        bbias = biases[vl_step*batch_size:(vl_step+1)*batch_size]
+                    bbias = biases
                     loss_value_vl, acc_vl = sess.run([loss, accuracy],
                         feed_dict={
                             ftr_in: features[vl_step*batch_size:(vl_step+1)*batch_size],
@@ -152,7 +193,7 @@ for run_id in range(100):
                             lbl_in: y_val[vl_step*batch_size:(vl_step+1)*batch_size],
                             msk_in: val_mask[vl_step*batch_size:(vl_step+1)*batch_size],
                             is_train: False,
-                            attn_drop: 0.0, ffd_drop: 0.0})
+                            attn_drop: 0.0, ffd_drop: 0.0, intra_drop: 0.0})
                     val_loss_avg += loss_value_vl
                     val_acc_avg += acc_vl
                     vl_step += 1
@@ -191,10 +232,7 @@ for run_id in range(100):
             ts_acc = 0.0
 
             while ts_step * batch_size < ts_size:
-                if sparse:
-                    bbias = biases
-                else:
-                    bbias = biases[ts_step*batch_size:(ts_step+1)*batch_size]
+                bbias = biases
                 loss_value_ts, acc_ts = sess.run([loss, accuracy],
                     feed_dict={
                         ftr_in: features[ts_step*batch_size:(ts_step+1)*batch_size],
@@ -202,11 +240,16 @@ for run_id in range(100):
                         lbl_in: y_test[ts_step*batch_size:(ts_step+1)*batch_size],
                         msk_in: test_mask[ts_step*batch_size:(ts_step+1)*batch_size],
                         is_train: False,
-                        attn_drop: 0.0, ffd_drop: 0.0})
+                        attn_drop: 0.0, ffd_drop: 0.0, intra_drop:0.0})
                 ts_loss += loss_value_ts
                 ts_acc += acc_ts
                 ts_step += 1
 
             print('Test loss:', ts_loss/ts_step, '; Test accuracy:', ts_acc/ts_step)
+            res_list.append(ts_acc/ts_step)
 
             sess.close()
+
+res = 'Test accuracy ' + str(args.nruns) + ' runs: ' + str(np.mean(res_list)) + ' +- ' + str(np.std(res_list))
+print(res)
+open(arg.model + 'logger', 'a').write(str(args) + '\n' + res + '\n')
