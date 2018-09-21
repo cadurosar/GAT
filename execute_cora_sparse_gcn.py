@@ -25,6 +25,7 @@ nonlinearity = tf.nn.relu
 attn_drop_value = 0.5
 ffd_drop_value = 0.5
 model = SpGCN
+scheme_norm = tf.sparse_softmax
 
 print('Dataset: ' + dataset)
 print('----- Opt. hyperparams -----')

@@ -6,7 +6,8 @@ from models.base_gattn import BaseGAttN
 
 class SpGCT(BaseGAttN):
     def inference(inputs, nb_classes, nb_nodes, training, attn_drop, ffd_drop, nnz,
-            bias_mat, hid_units, n_heads, activation=tf.nn.elu, 
+            bias_mat, hid_units, n_heads, activation=tf.nn.elu,
+            intra_drop=None, intra_activation=None, scheme_norm=None, scheme_init_std=None,
             residual=False):
         attns = []
         with tf.variable_scope('level_0'):
@@ -38,3 +39,7 @@ class SpGCT(BaseGAttN):
         logits = tf.add_n(out) / n_heads[-1]
     
         return logits
+
+(seq, out_sz, adj_mat, activation, nb_nodes, in_drop=0.0, coef_drop=0.0, residual=False,
+                 nnz=None, use_bias=True, intra_drop=None, intra_activation=False, scheme_norm=None,
+                 scheme_init_std=None):
