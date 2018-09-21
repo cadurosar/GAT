@@ -254,4 +254,4 @@ for run_id in range(args.nruns):
 
 res = 'Test accuracy ' + str(args.nruns) + ' runs: ' + str(np.mean(res_list)) + ' +- ' + str(np.std(res_list))
 print(res)
-open(arg.model + 'logger', 'a').write(str(args) + '\n' + res + '\n')
+open(args.model + 'logger', 'a').write(str(args) + '\n' + res + '\n')
