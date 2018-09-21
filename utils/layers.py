@@ -22,7 +22,7 @@ def attn_head(seq, out_sz, bias_mat, activation, in_drop=0.0, coef_drop=0.0, res
             seq_fts = tf.nn.dropout(seq_fts, 1.0 - in_drop)
 
         vals = tf.matmul(coefs, seq_fts)
-        if use_bias=True:
+        if use_bias:
             ret = tf.contrib.layers.bias_add(vals)
 
         # residual connection

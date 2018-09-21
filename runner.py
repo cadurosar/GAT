@@ -4,7 +4,7 @@ import numpy as np
 import tensorflow as tf
 import argparse as ap
 
-from models import SpGAT, SpGCT, SpGCN
+from models import SpGAT, SpGCT, SpGCTS, SpGCN
 from utils import process
 
 parser = ap.ArgumentParser(description='Run 100 times and return mean acc +- std')
@@ -12,8 +12,8 @@ parser = ap.ArgumentParser(description='Run 100 times and return mean acc +- std
 parser.add_argument('--dataset', '-d', default='cora')
 parser.add_argument('--model', '-m', default='gct')
 parser.add_argument('--patience', '-p', type=int, default=100)
-parser.add_argument('--hiddens', '-hu', nargs='+', type=int, default=[16])
-parser.add_argument('--nheads', '-n', nargs='+', type=int, default=[1, 1])
+parser.add_argument('--hiddens', '-hu', nargs='+', type=int, default=[8])
+parser.add_argument('--nheads', '-n', nargs='+', type=int, default=[8, 1])
 parser.add_argument('--savebest', '-b', type=bool, default=True)
 parser.add_argument('--activation', '-a', default='relu')
 parser.add_argument('--intraactivation', '-ia', default='None')
@@ -31,6 +31,8 @@ checkpt_file = 'pre_trained/runner.ckpt'
 dataset = args.dataset
 if args.model == 'gct':
     model = SpGCT
+elif args.model == 'gcts':
+    model = SpGCTS
 elif args.model == 'gcn':
     model = SpGCN
 elif args.model == 'gat':
