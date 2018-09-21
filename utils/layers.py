@@ -89,7 +89,7 @@ def sp_attn_head(seq, out_sz, adj_mat, activation, nb_nodes, in_drop=0.0, coef_d
 # neural contraction
 def sp_cttn_head(seq, out_sz, adj_mat, activation, nb_nodes, in_drop=0.0, coef_drop=0.0, residual=False,
                  nnz=None, use_bias=True, intra_drop=None, intra_activation=False, softmax_norm=True,
-                 sheme_init_std=None):
+                 scheme_init_std=None):
     if intra_drop is None:
         intra_drop = in_drop
     
@@ -105,7 +105,7 @@ def sp_cttn_head(seq, out_sz, adj_mat, activation, nb_nodes, in_drop=0.0, coef_d
             seq_fts = tf.nn.dropout(seq_fts, 1.0 - intra_drop)
 
         # left operand SXW
-        initializer = None if scheme_init_std is None else tf.truncated_normal_initializer(0.0,sheme_init_std)
+        initializer = None if scheme_init_std is None else tf.truncated_normal_initializer(0.0,scheme_init_std)
         scheme_kernel = tf.get_variable('scheme_kernel', (nnz,),
                                         initializer=initializer,
                                         trainable=True)
