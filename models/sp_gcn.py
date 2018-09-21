@@ -16,7 +16,9 @@ class SpGCN(BaseGAttN):
                 attns.append(layers.sp_gcn_head(inputs,
                     adj_mat=bias_mat, nnz=nnz,
                     out_sz=hid_units[0], activation=activation, nb_nodes=nb_nodes,
-                    in_drop=ffd_drop, coef_drop=attn_drop, residual=False))
+                    in_drop=ffd_drop, coef_drop=attn_drop, residual=False,
+                    intra_drop=intra_drop, intra_activation=intra_activation,
+                    scheme_norm=scheme_norm, scheme_init_std=scheme_init_std))
         h_1 = tf.concat(attns, axis=-1)
         for i in range(1, len(hid_units)):
             with tf.variable_scope('level_' + str(i)):
@@ -27,7 +29,9 @@ class SpGCN(BaseGAttN):
                       attns.append(layers.sp_gcn_head(h_1,  
                         adj_mat=bias_mat, nnz=nnz,
                         out_sz=hid_units[i], activation=activation, nb_nodes=nb_nodes,
-                        in_drop=ffd_drop, coef_drop=attn_drop, residual=residual))
+                        in_drop=ffd_drop, coef_drop=attn_drop, residual=residual,
+                        intra_drop=intra_drop, intra_activation=intra_activation,
+                        scheme_norm=scheme_norm, scheme_init_std=scheme_init_std))
                 h_1 = tf.concat(attns, axis=-1)
         out = []
         with tf.variable_scope('level_' + str(len(hid_units))):
@@ -35,7 +39,9 @@ class SpGCN(BaseGAttN):
                 with tf.variable_scope('head_' + str(i)):
                   out.append(layers.sp_gcn_head(h_1, adj_mat=bias_mat, nnz=nnz,
                     out_sz=nb_classes, activation=lambda x: x, nb_nodes=nb_nodes,
-                    in_drop=ffd_drop, coef_drop=attn_drop, residual=False))
+                    in_drop=ffd_drop, coef_drop=attn_drop, residual=False,
+                    intra_drop=intra_drop, intra_activation=intra_activation,
+                    scheme_norm=scheme_norm, scheme_init_std=scheme_init_std))
         logits = tf.add_n(out) / n_heads[-1]
     
         return logits
