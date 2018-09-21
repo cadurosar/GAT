@@ -35,7 +35,9 @@ def attn_head(seq, out_sz, bias_mat, activation, in_drop=0.0, coef_drop=0.0, res
 
 # Experimental sparse attention head (for running on datasets such as Pubmed)
 # N.B. Because of limitations of current TF implementation, will work _only_ if batch_size = 1!
-def sp_attn_head(seq, out_sz, adj_mat, activation, nb_nodes, in_drop=0.0, coef_drop=0.0, residual=False):
+def sp_attn_head(seq, out_sz, adj_mat, activation, nb_nodes, in_drop=0.0, coef_drop=0.0, residual=False,
+                 nnz=None, use_bias=True, intra_drop=None, intra_activation=False, softmax_norm=False,
+                 sheme_init_std=None):
     with tf.name_scope('sp_attn'):
         if in_drop != 0.0:
             seq = tf.nn.dropout(seq, 1.0 - in_drop)
@@ -85,10 +87,9 @@ def sp_attn_head(seq, out_sz, adj_mat, activation, nb_nodes, in_drop=0.0, coef_d
         return activation(ret)  # activation
 
 # neural contraction
-def sp_cttn_head(seq, out_sz, adj_mat, nnz, activation, nb_nodes,
-                 in_drop=0.0, coef_drop=0.0, residual=False, use_bias=True,
-                 intra_drop=None, intra_activation=False, softmax_norm=False):
-
+def sp_cttn_head(seq, out_sz, adj_mat, activation, nb_nodes, in_drop=0.0, coef_drop=0.0, residual=False,
+                 nnz=None, use_bias=True, intra_drop=None, intra_activation=False, softmax_norm=True,
+                 sheme_init_std=None):
     if intra_drop is None:
         intra_drop = in_drop
     
@@ -103,9 +104,11 @@ def sp_cttn_head(seq, out_sz, adj_mat, nnz, activation, nb_nodes,
         if intra_drop != 0.0:
             seq_fts = tf.nn.dropout(seq_fts, 1.0 - intra_drop)
 
-        # left operand SXW        
+        # left operand SXW
+        initializer = None if scheme_init_std is None else tf.truncated_normal_initializer(0.0,sheme_init_std)
         scheme_kernel = tf.get_variable('scheme_kernel', (nnz,),
-                                        trainable = True)
+                                        initializer=initializer,
+                                        trainable=True)
         scheme = tf.SparseTensor(indices = adj_mat.indices,
             values = scheme_kernel,
             dense_shape = adj_mat.dense_shape)
@@ -136,14 +139,14 @@ def sp_cttn_head(seq, out_sz, adj_mat, nnz, activation, nb_nodes,
         # activation
         return activation(ret)
 
-def sp_gcn_head(seq, out_sz, adj_mat, nnz, activation, nb_nodes,
-                 in_drop=0.0, coef_drop=0.0, residual=False, use_bias=True,
-                 intra_drop=None, intra_activation=False, softmax_norm=False):
-
+# original graph convolution
+def sp_gcn_head(seq, out_sz, adj_mat, activation, nb_nodes, in_drop=0.0, coef_drop=0.0, residual=False,
+                 nnz=None, use_bias=True, intra_drop=None, intra_activation=False, softmax_norm=False,
+                 sheme_init_std=None):
     if intra_drop is None:
         intra_drop = in_drop
     
-    with tf.name_scope('sp_contraction'):
+    with tf.name_scope('sp_gcn'):
         if in_drop != 0.0:
             seq = tf.nn.dropout(seq, 1.0 - in_drop)
 

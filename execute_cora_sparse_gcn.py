@@ -1,11 +1,13 @@
 import time
+import scipy.sparse as sp
 import numpy as np
 import tensorflow as tf
+import argparse
 
-from models import GAT
+from models import SpGCN
 from utils import process
 
-checkpt_file = 'pre_trained/cora/mod_cora.ckpt'
+checkpt_file = 'pre_trained/cora/mod_cora_gcn.ckpt'
 
 dataset = 'cora'
 
@@ -15,11 +17,14 @@ nb_epochs = 100000
 patience = 100
 lr = 0.005  # learning rate
 l2_coef = 0.0005  # weight decay
-hid_units = [8] # numbers of hidden units per each attention head in each layer
-n_heads = [8, 1] # additional entry for the output layer
+hid_units = [16] # numbers of hidden units per each attention head in each layer
+n_heads = [1, 1] # additional entry for the output layer
 residual = False
-nonlinearity = tf.nn.elu
-model = GAT
+save_best = True
+nonlinearity = tf.nn.relu
+attn_drop_value = 0.5
+ffd_drop_value = 0.5
+model = SpGCN
 
 print('Dataset: ' + dataset)
 print('----- Opt. hyperparams -----')
@@ -33,6 +38,8 @@ print('residual: ' + str(residual))
 print('nonlinearity: ' + str(nonlinearity))
 print('model: ' + str(model))
 
+sparse = True
+
 adj, features, y_train, y_val, y_test, train_mask, val_mask, test_mask = process.load_data(dataset)
 features, spars = process.preprocess_features(features)
 
@@ -40,10 +47,7 @@ nb_nodes = features.shape[0]
 ft_size = features.shape[1]
 nb_classes = y_train.shape[1]
 
-adj = adj.todense()
-
 features = features[np.newaxis]
-adj = adj[np.newaxis]
 y_train = y_train[np.newaxis]
 y_val = y_val[np.newaxis]
 y_test = y_test[np.newaxis]
@@ -51,12 +55,25 @@ train_mask = train_mask[np.newaxis]
 val_mask = val_mask[np.newaxis]
 test_mask = test_mask[np.newaxis]
 
-biases = process.adj_to_bias(adj, [nb_nodes], nhood=1)
+if sparse:
+    #biases = process.preprocess_adj_bias(adj)
+    biases = process.preprocess_adj(adj)
+    nnz = len(biases[1])
+else:
+    adj = adj.todense()
+    adj = adj[np.newaxis]
+    biases = process.adj_to_bias(adj, [nb_nodes], nhood=1)
 
 with tf.Graph().as_default():
     with tf.name_scope('input'):
         ftr_in = tf.placeholder(dtype=tf.float32, shape=(batch_size, nb_nodes, ft_size))
-        bias_in = tf.placeholder(dtype=tf.float32, shape=(batch_size, nb_nodes, nb_nodes))
+        if sparse:
+            #bias_idx = tf.placeholder(tf.int64)
+            #bias_val = tf.placeholder(tf.float32)
+            #bias_shape = tf.placeholder(tf.int64)
+            bias_in = tf.sparse_placeholder(dtype=tf.float32)
+        else:
+            bias_in = tf.placeholder(dtype=tf.float32, shape=(batch_size, nb_nodes, nb_nodes))
         lbl_in = tf.placeholder(dtype=tf.int32, shape=(batch_size, nb_nodes, nb_classes))
         msk_in = tf.placeholder(dtype=tf.int32, shape=(batch_size, nb_nodes))
         attn_drop = tf.placeholder(dtype=tf.float32, shape=())
@@ -64,7 +81,7 @@ with tf.Graph().as_default():
         is_train = tf.placeholder(dtype=tf.bool, shape=())
 
     logits = model.inference(ftr_in, nb_classes, nb_nodes, is_train,
-                                attn_drop, ffd_drop,
+                                attn_drop, ffd_drop, nnz,
                                 bias_mat=bias_in,
                                 hid_units=hid_units, n_heads=n_heads,
                                 residual=residual, activation=nonlinearity)
@@ -76,7 +93,8 @@ with tf.Graph().as_default():
 
     train_op = model.training(loss, lr, l2_coef)
 
-    saver = tf.train.Saver()
+    if save_best:
+        saver = tf.train.Saver()
 
     init_op = tf.group(tf.global_variables_initializer(), tf.local_variables_initializer())
 
@@ -97,14 +115,19 @@ with tf.Graph().as_default():
             tr_size = features.shape[0]
 
             while tr_step * batch_size < tr_size:
+                if sparse:
+                    bbias = biases
+                else:
+                    bbias = biases[tr_step*batch_size:(tr_step+1)*batch_size]
+
                 _, loss_value_tr, acc_tr = sess.run([train_op, loss, accuracy],
                     feed_dict={
                         ftr_in: features[tr_step*batch_size:(tr_step+1)*batch_size],
-                        bias_in: biases[tr_step*batch_size:(tr_step+1)*batch_size],
+                        bias_in: bbias,
                         lbl_in: y_train[tr_step*batch_size:(tr_step+1)*batch_size],
                         msk_in: train_mask[tr_step*batch_size:(tr_step+1)*batch_size],
                         is_train: True,
-                        attn_drop: 0.6, ffd_drop: 0.6})
+                        attn_drop: attn_drop_value, ffd_drop: ffd_drop_value})
                 train_loss_avg += loss_value_tr
                 train_acc_avg += acc_tr
                 tr_step += 1
@@ -113,10 +136,14 @@ with tf.Graph().as_default():
             vl_size = features.shape[0]
 
             while vl_step * batch_size < vl_size:
+                if sparse:
+                    bbias = biases
+                else:
+                    bbias = biases[vl_step*batch_size:(vl_step+1)*batch_size]
                 loss_value_vl, acc_vl = sess.run([loss, accuracy],
                     feed_dict={
                         ftr_in: features[vl_step*batch_size:(vl_step+1)*batch_size],
-                        bias_in: biases[vl_step*batch_size:(vl_step+1)*batch_size],
+                        bias_in: bbias,
                         lbl_in: y_val[vl_step*batch_size:(vl_step+1)*batch_size],
                         msk_in: val_mask[vl_step*batch_size:(vl_step+1)*batch_size],
                         is_train: False,
@@ -133,7 +160,8 @@ with tf.Graph().as_default():
                 if val_acc_avg/vl_step >= vacc_mx and val_loss_avg/vl_step <= vlss_mn:
                     vacc_early_model = val_acc_avg/vl_step
                     vlss_early_model = val_loss_avg/vl_step
-                    saver.save(sess, checkpt_file)
+                    if save_best:
+                        saver.save(sess, checkpt_file)
                 vacc_mx = np.max((val_acc_avg/vl_step, vacc_mx))
                 vlss_mn = np.min((val_loss_avg/vl_step, vlss_mn))
                 curr_step = 0
@@ -149,7 +177,8 @@ with tf.Graph().as_default():
             val_loss_avg = 0
             val_acc_avg = 0
 
-        saver.restore(sess, checkpt_file)
+        if save_best:
+            saver.restore(sess, checkpt_file)
 
         ts_size = features.shape[0]
         ts_step = 0
@@ -157,10 +186,14 @@ with tf.Graph().as_default():
         ts_acc = 0.0
 
         while ts_step * batch_size < ts_size:
+            if sparse:
+                bbias = biases
+            else:
+                bbias = biases[ts_step*batch_size:(ts_step+1)*batch_size]
             loss_value_ts, acc_ts = sess.run([loss, accuracy],
                 feed_dict={
                     ftr_in: features[ts_step*batch_size:(ts_step+1)*batch_size],
-                    bias_in: biases[ts_step*batch_size:(ts_step+1)*batch_size],
+                    bias_in: bbias,
                     lbl_in: y_test[ts_step*batch_size:(ts_step+1)*batch_size],
                     msk_in: test_mask[ts_step*batch_size:(ts_step+1)*batch_size],
                     is_train: False,
