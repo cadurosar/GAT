@@ -260,7 +260,7 @@ if args.nthreads == 1:
     for run_id in range(args.nruns):
         res_list.append(run_once(run_id))
 else:
-    # multithreaded for loop of above commented version
+    # multithreaded for loop
     pool = ThreadPool(args.nthreads)
     res_list = pool.map(run_once, range(args.nruns))
 
