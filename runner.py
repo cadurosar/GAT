@@ -3,6 +3,7 @@ import scipy.sparse as sp
 import numpy as np
 import tensorflow as tf
 import argparse as ap
+from multiprocessing.dummy import Pool as ThreadPool 
 
 from models import SpGAT, SpGCT, SpGCTS, SpGCN
 from utils import process
@@ -254,16 +255,14 @@ def run_once(run_id):
             sess.close()
     return ts_acc/ts_step
 
-"""
-res_list = []
-for run_id in range(args.nruns):
-    res_list.append(run_once(run_id))
-"""
-
-# multithreaded for loop of above commented version
-from multiprocessing.dummy import Pool as ThreadPool 
-pool = ThreadPool(args.nthreads)
-res_list = pool.map(run_once, range(args.nruns))
+if args.nthreads == 1:
+    res_list = []
+    for run_id in range(args.nruns):
+        res_list.append(run_once(run_id))
+else:
+    # multithreaded for loop of above commented version
+    pool = ThreadPool(args.nthreads)
+    res_list = pool.map(run_once, range(args.nruns))
 
 res = 'Test accuracy ' + str(args.nruns) + ' runs: ' + str(np.mean(res_list)) + ' +- ' + str(np.std(res_list))
 print(res)

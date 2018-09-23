@@ -5,7 +5,7 @@ from utils import layers
 from models.base_gattn import BaseGAttN
 
 class SpGAT(BaseGAttN):
-    def inference(inputs, nb_classes, nb_nodes, training, attn_drop, ffd_drop,
+    def inference(inputs, nb_classes, nb_nodes, training, attn_drop, ffd_drop, nnz,
             bias_mat, hid_units, n_heads, activation=tf.nn.elu,
             intra_drop=None, intra_activation=None, scheme_norm=None, scheme_init_std=None,
             residual=False, use_bias=True):
