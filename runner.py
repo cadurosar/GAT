@@ -29,7 +29,7 @@ parser.add_argument('--verbose', '-v', type=bool, default=False)
 #parser.add_argument('--std_init', '-std', default='None')
 
 args = parser.parse_args()
-print args
+print(args, flush=True)
 
 file = open(args.model + 'logger', 'a')
 file.write(str(args) + '\n')
