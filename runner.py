@@ -22,6 +22,7 @@ parser.add_argument('--rightdropout', '-rd', type=float, default=0.5)
 parser.add_argument('--leftdropout', '-ld', type=float, default=0.5)
 parser.add_argument('--snorm', '-s', default='softmax')
 parser.add_argument('--nruns', '-r', type=int, default=100)
+parser.add_argument('--nthreads', '-t', type=int, default=25)
 parser.add_argument('--usebias', '-ub', type=bool, default=True)
 #parser.add_argument('--std_init', '-std', default='None')
 
@@ -115,8 +116,7 @@ test_mask = test_mask[np.newaxis]
 biases = process.preprocess_adj_bias(adj) if args.model == 'gat' else process.preprocess_adj(adj)
 nnz = len(biases[1])
 
-res_list = []
-for run_id in range(args.nruns):
+def run_once(run_id):
     with tf.Graph().as_default():
         with tf.name_scope('input'):
             ftr_in = tf.placeholder(dtype=tf.float32, shape=(batch_size, nb_nodes, ft_size))
@@ -209,7 +209,7 @@ for run_id in range(args.nruns):
                         vacc_early_model = val_acc_avg/vl_step
                         vlss_early_model = val_loss_avg/vl_step
                         if save_best:
-                            saver.save(sess, checkpt_file)
+                            saver.save(sess, checkpt_file + '_proc' + str(run_id))
                     vacc_mx = np.max((val_acc_avg/vl_step, vacc_mx))
                     vlss_mn = np.min((val_loss_avg/vl_step, vlss_mn))
                     curr_step = 0
@@ -226,7 +226,7 @@ for run_id in range(args.nruns):
                 val_acc_avg = 0
 
             if save_best:
-                saver.restore(sess, checkpt_file)
+                saver.restore(sess, checkpt_file + '_proc' + str(run_id))
 
             ts_size = features.shape[0]
             ts_step = 0
@@ -248,9 +248,20 @@ for run_id in range(args.nruns):
                 ts_step += 1
 
             print('Test loss:', ts_loss/ts_step, '; Test accuracy:', ts_acc/ts_step)
-            res_list.append(ts_acc/ts_step)
 
             sess.close()
+    return ts_acc/ts_step
+
+"""
+res_list = []
+for run_id in range(args.nruns):
+    res_list.append(run_once(run_id))
+"""
+
+# multithreaded for loop of above commented version
+from multiprocessing.dummy import Pool as ThreadPool 
+pool = ThreadPool(args.nthreads)
+res_list = pool.map(run_once, range(args.nruns))
 
 res = 'Test accuracy ' + str(args.nruns) + ' runs: ' + str(np.mean(res_list)) + ' +- ' + str(np.std(res_list))
 print(res)
