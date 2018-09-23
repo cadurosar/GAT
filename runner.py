@@ -29,6 +29,10 @@ parser.add_argument('--verbose', '-v', type=bool, default=False)
 #parser.add_argument('--std_init', '-std', default='None')
 
 args = parser.parse_args()
+print args
+
+file = open(args.model + 'logger', 'a')
+file.write(str(args) + '\n')
 
 checkpt_file = 'pre_trained/runner.ckpt'
 dataset = args.dataset
@@ -88,6 +92,7 @@ else:
 scheme_init_std = None
 use_bias = args.usebias
 
+"""
 print('Dataset: ' + dataset)
 print('----- Opt. hyperparams -----')
 print('lr: ' + str(lr))
@@ -99,6 +104,7 @@ print('nb. attention heads: ' + str(n_heads))
 print('residual: ' + str(residual))
 print('nonlinearity: ' + str(nonlinearity))
 print('model: ' + str(model))
+"""
 
 adj, features, y_train, y_val, y_test, train_mask, val_mask, test_mask = process.load_data(dataset)
 features, spars = process.preprocess_features(features)
@@ -266,4 +272,4 @@ else:
 
 res = 'Test accuracy ' + str(args.nruns) + ' runs: ' + str(np.mean(res_list)) + ' +- ' + str(np.std(res_list))
 print(res)
-open(args.model + 'logger', 'a').write(str(args) + '\n' + res + '\n')
+file.write(res + '\n')
