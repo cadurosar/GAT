@@ -24,6 +24,7 @@ parser.add_argument('--snorm', '-s', default='softmax')
 parser.add_argument('--nruns', '-r', type=int, default=100)
 parser.add_argument('--nthreads', '-t', type=int, default=25)
 parser.add_argument('--usebias', '-ub', type=bool, default=True)
+parser.add_argument('--verbose', '-v', type=bool, default=False)
 #parser.add_argument('--std_init', '-std', default='None')
 
 args = parser.parse_args()
@@ -200,7 +201,8 @@ def run_once(run_id):
                     val_acc_avg += acc_vl
                     vl_step += 1
 
-                print('Training: loss = %.5f, acc = %.5f | Val: loss = %.5f, acc = %.5f' %
+                if args.verbose:
+                    print('Training: loss = %.5f, acc = %.5f | Val: loss = %.5f, acc = %.5f' %
                         (train_loss_avg/tr_step, train_acc_avg/tr_step,
                         val_loss_avg/vl_step, val_acc_avg/vl_step))
 
