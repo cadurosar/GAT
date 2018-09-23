@@ -3,7 +3,7 @@ import scipy.sparse as sp
 import numpy as np
 import tensorflow as tf
 import argparse as ap
-from multiprocessing.dummy import Pool as ThreadPool 
+from multiprocessing import Pool
 
 from models import SpGAT, SpGCT, SpGCTS, SpGCN
 from utils import process
@@ -23,7 +23,7 @@ parser.add_argument('--rightdropout', '-rd', type=float, default=0.5)
 parser.add_argument('--leftdropout', '-ld', type=float, default=0.5)
 parser.add_argument('--snorm', '-s', default='softmax')
 parser.add_argument('--nruns', '-r', type=int, default=100)
-parser.add_argument('--nthreads', '-t', type=int, default=25)
+#parser.add_argument('--nthreads', '-t', type=int, default=25)
 parser.add_argument('--usebias', '-ub', type=bool, default=True)
 parser.add_argument('--verbose', '-v', type=bool, default=False)
 #parser.add_argument('--std_init', '-std', default='None')
@@ -33,6 +33,7 @@ print(args, flush=True)
 
 file = open(args.model + 'logger', 'a')
 file.write(str(args) + '\n')
+file.flush()
 
 checkpt_file = 'pre_trained/runner.ckpt'
 dataset = args.dataset
@@ -261,15 +262,10 @@ def run_once(run_id):
             sess.close()
     return ts_acc/ts_step
 
-if args.nthreads == 1:
-    res_list = []
-    for run_id in range(args.nruns):
-        res_list.append(run_once(run_id))
-else:
-    # multithreaded for loop
-    pool = ThreadPool(args.nthreads)
-    res_list = pool.map(run_once, range(args.nruns))
+pool = Pool()
+res_list = pool.map(run_once, range(args.nruns))
 
 res = 'Test accuracy ' + str(args.nruns) + ' runs: ' + str(np.mean(res_list)) + ' +- ' + str(np.std(res_list))
 print(res)
 file.write(res + '\n')
+file.close()

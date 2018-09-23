@@ -101,7 +101,7 @@ def sp_cttn_head(seq, out_sz, adj_mat, activation, nb_nodes, in_drop=0.0, coef_d
         # right operand SXW
         seq_fts = tf.layers.conv1d(seq, out_sz, 1, use_bias=False)
         if not(intra_activation is None):
-            seq_fts = intra_activation(seq_fts, 1.0 - intra_drop)
+            seq_fts = intra_activation(seq_fts)
         if intra_drop != 0.0:
             seq_fts = tf.nn.dropout(seq_fts, 1.0 - intra_drop)
 
@@ -154,7 +154,7 @@ def sp_gcn_head(seq, out_sz, adj_mat, activation, nb_nodes, in_drop=0.0, coef_dr
         # right operand SXW
         seq_fts = tf.layers.conv1d(seq, out_sz, 1, use_bias=False)
         if not(intra_activation is None):
-            seq_fts = intra_activation(seq_fts, 1.0 - intra_drop)
+            seq_fts = intra_activation(seq_fts)
         if intra_drop != 0.0:
             seq_fts = tf.nn.dropout(seq_fts, 1.0 - intra_drop)
 
