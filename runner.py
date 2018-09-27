@@ -1,4 +1,4 @@
-import time, sys
+import time, sys, os
 import scipy.sparse as sp
 import numpy as np
 import tensorflow as tf
@@ -7,6 +7,7 @@ from multiprocessing import Pool
 
 from models import SpGAT, SpGCT, SpGCTS, SpGCN
 from utils import process
+import hashlib
 
 parser = ap.ArgumentParser(description='Run 100 times and return mean acc +- std')
 
@@ -30,10 +31,6 @@ parser.add_argument('--verbose', '-v', type=bool, default=False)
 
 args = parser.parse_args()
 print(args, flush=True)
-
-file = open(args.model + 'logger', 'a')
-file.write(str(args) + '\n')
-file.flush()
 
 checkpt_file = 'pre_trained/runner.ckpt'
 dataset = args.dataset
@@ -219,7 +216,7 @@ def run_once(run_id):
                         vacc_early_model = val_acc_avg/vl_step
                         vlss_early_model = val_loss_avg/vl_step
                         if save_best:
-                            saver.save(sess, checkpt_file + '_proc' + str(run_id))
+                            saver.save(sess, checkpt_file + '_' + hashlib.md5(str(args).encode()).hexdigest() + '_proc' + str(run_id))
                     vacc_mx = np.max((val_acc_avg/vl_step, vacc_mx))
                     vlss_mn = np.min((val_loss_avg/vl_step, vlss_mn))
                     curr_step = 0
@@ -236,7 +233,7 @@ def run_once(run_id):
                 val_acc_avg = 0
 
             if save_best:
-                saver.restore(sess, checkpt_file + '_proc' + str(run_id))
+                saver.restore(sess, checkpt_file + '_' + hashlib.md5(str(args).encode()).hexdigest() +  '_proc' + str(run_id))
 
             ts_size = features.shape[0]
             ts_step = 0
@@ -260,6 +257,7 @@ def run_once(run_id):
             print('Test loss:', ts_loss/ts_step, '; Test accuracy:', ts_acc/ts_step)
 
             sess.close()
+            os.system('rm ' + checkpt_file + '_' + hashlib.md5(str(args).encode()).hexdigest() +  '_proc' + str(run_id) + '*')
     return ts_acc/ts_step
 
 pool = Pool()
@@ -267,5 +265,7 @@ res_list = pool.map(run_once, range(args.nruns))
 
 res = 'Test accuracy ' + str(args.nruns) + ' runs: ' + str(np.mean(res_list)) + ' +- ' + str(np.std(res_list))
 print(res)
-file.write(res + '\n')
+
+file = open(args.model + 'logger', 'a')
+file.write(str(args) + '\n' + res + '\n')
 file.close()
