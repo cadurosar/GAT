@@ -260,8 +260,11 @@ def run_once(run_id):
             os.system('rm ' + checkpt_file + '_' + hashlib.md5(str(args).encode()).hexdigest() +  '_proc' + str(run_id) + '*')
     return ts_acc/ts_step
 
-pool = Pool()
-res_list = pool.map(run_once, range(args.nruns))
+#pool = Pool()
+#res_list = pool.map(run_once, range(args.nruns))
+res_list = []
+for i in range(args.nruns):
+  res_list.append(run_once(i))
 
 res = 'Test accuracy ' + str(args.nruns) + ' runs: ' + str(np.mean(res_list)) + ' +- ' + str(np.std(res_list))
 print(res)
