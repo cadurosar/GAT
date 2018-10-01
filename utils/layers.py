@@ -3,6 +3,7 @@ import tensorflow as tf
 
 conv1d = tf.layers.conv1d
 
+# attention (Velickovic et al.)
 def attn_head(seq, out_sz, bias_mat, activation, in_drop=0.0, coef_drop=0.0, residual=False, use_bias=True):
     with tf.name_scope('my_attn'):
         if in_drop != 0.0:
@@ -87,7 +88,7 @@ def sp_attn_head(seq, out_sz, adj_mat, activation, nb_nodes, in_drop=0.0, coef_d
 
         return activation(ret)  # activation
 
-# neural contraction
+# neural contraction (Vialatte et al.)
 def sp_cttn_head(seq, out_sz, adj_mat, activation, nb_nodes, in_drop=0.0, coef_drop=0.0, residual=False,
                  nnz=None, use_bias=True, intra_drop=None, intra_activation=None, scheme_norm=tf.sparse_softmax,
                  scheme_init_std=None):
@@ -140,7 +141,7 @@ def sp_cttn_head(seq, out_sz, adj_mat, activation, nb_nodes, in_drop=0.0, coef_d
         # activation
         return activation(ret)
 
-# original graph convolution
+# original graph convolution (Kipf et al.)
 def sp_gcn_head(seq, out_sz, adj_mat, activation, nb_nodes, in_drop=0.0, coef_drop=0.0, residual=False,
                  nnz=None, use_bias=True, intra_drop=None, intra_activation=None, scheme_norm=None,
                  scheme_init_std=None):
@@ -175,6 +176,99 @@ def sp_gcn_head(seq, out_sz, adj_mat, activation, nb_nodes, in_drop=0.0, coef_dr
         # bias
         if use_bias:
             ret = tf.contrib.layers.bias_add(vals)
+
+        # residual connection
+        if residual:
+            if seq.shape[-1] != ret.shape[-1]:
+                ret = ret + conv1d(seq, ret.shape[-1], 1)
+            else:
+                seq_fts = ret + seq
+
+        # activation
+        return activation(ret)
+
+# topology adaptative graph convolution (Du et al.)
+def sp_tagcn_head(seq, out_sz, adj_mat, activation, nb_nodes, in_drop=0.0, coef_drop=0.0, residual=False,
+                 nnz=None, use_bias=True, intra_drop=None, intra_activation=None, scheme_norm=None,
+                 scheme_init_std=None, K=2): #K is the polynomial order
+    if intra_drop is None:
+        intra_drop = in_drop
+    
+    with tf.name_scope('sp_gcn'):
+        if in_drop != 0.0:
+            seq = tf.nn.dropout(seq, 1.0 - in_drop)
+
+        # preprocessing S
+        scheme = adj_mat
+        if not(scheme_norm is None):
+            scheme = scheme_norm(scheme)
+        if coef_drop != 0.0:
+            scheme = tf.SparseTensor(indices=scheme.indices,
+                    values=tf.nn.dropout(scheme.values, 1.0 - coef_drop),
+                    dense_shape=scheme.dense_shape)
+        scheme = tf.sparse_reshape(scheme, [nb_nodes, nb_nodes])
+
+        vals = None
+        assert K > 0
+        for k in range(K+1):
+
+            # right operand SXW
+            seq_fts = tf.layers.conv1d(seq, out_sz, 1, use_bias=False)
+            if not(intra_activation is None):
+                seq_fts = intra_activation(seq_fts)
+            if intra_drop != 0.0:
+                seq_fts = tf.nn.dropout(seq_fts, 1.0 - intra_drop)
+            seq_fts = tf.squeeze(seq_fts)
+
+            # left operand SXW
+            for ik in range(k):
+                seq_fts = tf.sparse_tensor_dense_matmul(scheme, seq_fts)
+
+            # sum
+            if vals is None:
+                vals = seq_fts
+            else:
+                vals = vals + seq_fts
+
+        # shape
+        vals = tf.expand_dims(vals, axis=0)
+        vals.set_shape([1, nb_nodes, out_sz])
+
+        # bias
+        if use_bias:
+            ret = tf.contrib.layers.bias_add(vals)
+
+        # residual connection
+        if residual:
+            if seq.shape[-1] != ret.shape[-1]:
+                ret = ret + conv1d(seq, ret.shape[-1], 1)
+            else:
+                seq_fts = ret + seq
+
+        # activation
+        return activation(ret)
+
+# regular fully connected layer without using the graph
+def mlp_head(seq, out_sz, adj_mat=None, activation=tf.nn.relu, nb_nodes=None, in_drop=0.0, coef_drop=0.0, residual=False,
+                 nnz=None, use_bias=True, intra_drop=None, intra_activation=None, scheme_norm=None,
+                 scheme_init_std=None):
+    if intra_drop is None:
+        intra_drop = in_drop
+    
+    with tf.name_scope('mlp'):
+        if in_drop != 0.0:
+            seq = tf.nn.dropout(seq, 1.0 - in_drop)
+
+        # operation XW
+        seq_fts = tf.layers.conv1d(seq, out_sz, 1, use_bias=False)
+        if not(intra_activation is None):
+            seq_fts = intra_activation(seq_fts)
+        #if intra_drop != 0.0:
+        #    seq_fts = tf.nn.dropout(seq_fts, 1.0 - intra_drop)
+
+        # bias
+        if use_bias:
+            ret = tf.contrib.layers.bias_add(seq_fts)
 
         # residual connection
         if residual:

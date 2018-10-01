@@ -5,7 +5,7 @@ import tensorflow as tf
 import argparse as ap
 from multiprocessing import Pool
 
-from models import SpGAT, SpGCT, SpGCTS, SpGCN
+from models import SpGAT, SpGCT, SpGCTS, SpGCN, SpTAGCN, MLP
 from utils import process
 import hashlib
 
@@ -42,6 +42,10 @@ elif args.model == 'gcn':
     model = SpGCN
 elif args.model == 'gat':
     model = SpGAT
+elif args.model == 'tagcn':
+    model = SpTAGCN
+elif args.model == 'mlp':
+    model = MLP
 else:
     sys.exit(args.model + ' model unknown')
 
