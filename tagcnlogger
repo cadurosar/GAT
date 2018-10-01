@@ -30,3 +30,5 @@ Namespace(activation='relu', dataset='cora', hiddens=[16], indropout=0.5, intraa
 Test accuracy 100 runs: 0.8287899702787399 +- 0.007232282136663333
 Namespace(activation='relu', dataset='pubmed', hiddens=[16], indropout=0.5, intraactivation='None', leftdropout=0.0, model='tagcn', nheads=[1, 1], nruns=100, patience=100, rightdropout=0.5, savebest=True, snorm='None', usebias=True, verbose=False)
 Test accuracy 100 runs: 0.7886199587583542 +- 0.00579617691237987
+Namespace(activation='relu', dataset='citeseer', hiddens=[16], indropout=0.5, intraactivation='None', leftdropout=0.5, model='tagcn', nheads=[1, 1], nruns=100, patience=100, rightdropout=0.5, savebest=True, snorm='None', usebias=True, verbose=False)
+Test accuracy 100 runs: 0.7172799926996231 +- 0.007234748385160798
