@@ -112,3 +112,13 @@ Namespace(activation='relu', dataset='pubmed', hiddens=[128], indropout=0.5, int
 Test accuracy 100 runs: 0.7851599502563477 +- 0.005534840967639841
 Namespace(activation='relu', dataset='pubmed', hiddens=[64], indropout=0.5, intraactivation='None', leftdropout=0.5, model='gct', nheads=[1, 1], nruns=100, patience=100, rightdropout=0.5, savebest=True, snorm='softmax', usebias=True, verbose=False)
 Test accuracy 100 runs: 0.7849699473381042 +- 0.005437748168820463
+Namespace(activation='relu', dataset='citeseer', hiddens=[32], indropout=0.5, intraactivation='None', leftdropout=0.5, model='gct', nheads=[1, 1], nruns=100, patience=100, rightdropout=0.5, savebest=True, snorm='None', usebias=True, verbose=False)
+Test accuracy 100 runs: 0.6416800051927567 +- 0.04240208812571477
+Namespace(activation='relu', dataset='pubmed', hiddens=[64], indropout=0.5, intraactivation='None', leftdropout=0.0, model='gct', nheads=[1, 1], nruns=100, patience=100, rightdropout=0.5, savebest=True, snorm='softmax', usebias=True, verbose=False)
+Test accuracy 100 runs: 0.7920999610424042 +- 0.00455083841215853
+Namespace(activation='relu', dataset='pubmed', hiddens=[32], indropout=0.5, intraactivation='None', leftdropout=0.0, model='gct', nheads=[1, 1], nruns=100, patience=100, rightdropout=0.5, savebest=True, snorm='softmax', usebias=True, verbose=False)
+Test accuracy 100 runs: 0.7923099601268768 +- 0.0041945119241311776
+Namespace(activation='relu', dataset='pubmed', hiddens=[16], indropout=0.5, intraactivation='None', leftdropout=0.0, model='gct', nheads=[1, 1], nruns=100, patience=100, rightdropout=0.5, savebest=True, snorm='softmax', usebias=True, verbose=False)
+Test accuracy 100 runs: 0.7894699555635453 +- 0.006020734166519854
+Namespace(activation='relu', dataset='pubmed', hiddens=[16], indropout=0.5, intraactivation='None', leftdropout=0.5, model='gct', nheads=[1, 1], nruns=100, patience=100, rightdropout=0.5, savebest=True, snorm='softmax', usebias=True, verbose=False)
+Test accuracy 100 runs: 0.7822899490594863 +- 0.007291497182195254
