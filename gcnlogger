@@ -18,3 +18,9 @@ Namespace(activation='relu', dataset='cora', hiddens=[8], indropout=0.5, intraac
 Test accuracy 100 runs: 0.8308299905061722 +- 0.006049864840170909
 Namespace(activation='relu', dataset='citeseer', hiddens=[16], indropout=0.5, intraactivation='None', leftdropout=0.5, model='gcn', nheads=[1, 1], nruns=100, patience=100, rightdropout=0.5, savebest=True, snorm='softmax', usebias=True, verbose=False)
 Test accuracy 100 runs: 0.7249800002574921 +- 0.008106760672307466
+Namespace(activation='relu', dataset='pubmed', hiddens=[16], indropout=0.5, intraactivation='None', leftdropout=0.0, model='gcn', nheads=[1, 1], nruns=100, patience=100, rightdropout=0.5, savebest=True, snorm='softmax', usebias=True, verbose=False)
+Test accuracy 100 runs: 0.7898599570989608 +- 0.005306648495115114
+Namespace(activation='relu', dataset='pubmed', hiddens=[16], indropout=0.5, intraactivation='None', leftdropout=0.5, model='gcn', nheads=[1, 1], nruns=100, patience=100, rightdropout=0.5, savebest=True, snorm='softmax', usebias=True, verbose=False)
+Test accuracy 100 runs: 0.7817199468612671 +- 0.007459332287360315
+Namespace(activation='relu', dataset='citeseer', hiddens=[16], indropout=0.5, intraactivation='None', leftdropout=0.0, model='gcn', nheads=[1, 1], nruns=100, patience=100, rightdropout=0.5, savebest=True, snorm='softmax', usebias=True, verbose=False)
+Test accuracy 100 runs: 0.7219000029563903 +- 0.0064830576813300995

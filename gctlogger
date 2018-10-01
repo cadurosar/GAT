@@ -108,3 +108,7 @@ Namespace(activation='relu', dataset='citeseer', hiddens=[32], indropout=0.5, in
 Test accuracy 100 runs: 0.7274900031089783 +- 0.005369355736125834
 Namespace(activation='relu', dataset='citeseer', hiddens=[8], indropout=0.5, intraactivation='None', leftdropout=0.5, model='gct', nheads=[8, 1], nruns=100, patience=100, rightdropout=0.5, savebest=True, snorm='softmax', usebias=True, verbose=False)
 Test accuracy 100 runs: 0.7273500055074692 +- 0.006406827208729211
+Namespace(activation='relu', dataset='pubmed', hiddens=[128], indropout=0.5, intraactivation='None', leftdropout=0.5, model='gct', nheads=[1, 1], nruns=100, patience=100, rightdropout=0.5, savebest=True, snorm='softmax', usebias=True, verbose=False)
+Test accuracy 100 runs: 0.7851599502563477 +- 0.005534840967639841
+Namespace(activation='relu', dataset='pubmed', hiddens=[64], indropout=0.5, intraactivation='None', leftdropout=0.5, model='gct', nheads=[1, 1], nruns=100, patience=100, rightdropout=0.5, savebest=True, snorm='softmax', usebias=True, verbose=False)
+Test accuracy 100 runs: 0.7849699473381042 +- 0.005437748168820463
