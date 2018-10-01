@@ -210,7 +210,7 @@ def sp_tagcn_head(seq, out_sz, adj_mat, activation, nb_nodes, in_drop=0.0, coef_
 
         vals = None
         assert K > 0
-        for k in range(K+1):
+        for k in range(1, K+1):
 
             # right operand SXW
             seq_fts = tf.layers.conv1d(seq, out_sz, 1, use_bias=False)
