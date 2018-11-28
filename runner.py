@@ -29,6 +29,8 @@ parser.add_argument('--usebias', '-ub', type=bool, default=True)
 parser.add_argument('--verbose', '-v', type=bool, default=False)
 #parser.add_argument('--std_init', '-std', default='None')
 
+parser.add_argument('--cov', '-c', type=float, default=0.0)
+
 args = parser.parse_args()
 print(args, flush=True)
 
@@ -94,6 +96,10 @@ else:
 scheme_init_std = None
 use_bias = args.usebias
 
+# whether to use thresholded covar adjacency matrix
+use_covar = args.cov > 0
+ratio_kept = args.cov
+
 """
 print('Dataset: ' + dataset)
 print('----- Opt. hyperparams -----')
@@ -110,6 +116,15 @@ print('model: ' + str(model))
 
 adj, features, y_train, y_val, y_test, train_mask, val_mask, test_mask = process.load_data(dataset)
 features, spars = process.preprocess_features(features)
+
+# using covar adj instead of given one
+if use_covar:
+    adj = np.cov(features)
+    nb_kept = int(ratio_kept * adj.shape[0] * adj.shape[1])
+    threshold = adj.flatten()[-nb_kept]
+    adj[adj<threshold] = 0.0
+    adj = sp.csr_matrix(adj)
+###
 
 nb_nodes = features.shape[0]
 ft_size = features.shape[1]
