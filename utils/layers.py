@@ -251,11 +251,26 @@ def sp_tagcn_head(seq, out_sz, adj_mat, activation, nb_nodes, in_drop=0.0, coef_
 # regular fully connected layer without using the graph
 import torch
 class mlp_head(torch.nn.Module):
-    def __init__(seq, out_sz, adj_mat=None, activation=torch.nn.ReLU, nb_nodes=None, in_drop=0.0, coef_drop=0.0, residual=False,
+    def __init__(seq, in_sz, out_sz, adj_mat=None, activation=torch.nn.ReLU, nb_nodes=None, in_drop=0.0, coef_drop=0.0, residual=False,
                  nnz=None, use_bias=True, intra_drop=None, intra_activation=None, scheme_norm=None,
                  scheme_init_std=None):
+        if intra_drop is None:
+            intra_drop = in_drop
+        internal = list()
+        if in_drop != 0.0:
+            drop = torch.nn.Dropout(1.0-in_drop)
+            internal.append(drop)
+        seq_fts = torch.nn.Conv1D(in_sz,out_sz,kernel_size=1,use_bias=use_bias)
+        internal.append(seq_fts)
+        shortcut = False
+        if residual:
+            shortcut = True
+            if out_size != in_sz:
+                
 
-    def forward(input)
+
+
+    def forward(input):
 
 def mlp_head(seq, out_sz, adj_mat=None, activation=tf.nn.relu, nb_nodes=None, in_drop=0.0, coef_drop=0.0, residual=False,
                  nnz=None, use_bias=True, intra_drop=None, intra_activation=None, scheme_norm=None,
