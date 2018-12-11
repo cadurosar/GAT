@@ -2,7 +2,7 @@ import numpy as np
 import tensorflow as tf
 import torch
 
-conv1d = tf.layers.conv1d
+# conv1d = tf.layers.conv1d
 
 # attention (Velickovic et al.)
 def attn_head(seq, out_sz, bias_mat, activation, in_drop=0.0, coef_drop=0.0, residual=False, use_bias=True):
@@ -91,8 +91,8 @@ def sp_attn_head(seq, out_sz, adj_mat, activation, nb_nodes, in_drop=0.0, coef_d
 
 # neural contraction (Vialatte et al.)
 def sp_cttn_head(seq, out_sz, adj_mat, activation, nb_nodes, in_drop=0.0, coef_drop=0.0, residual=False,
-                 nnz=None, use_bias=True, intra_drop=None, intra_activation=None, scheme_norm=tf.sparse_softmax,
-                 scheme_init_std=None):
+                 nnz=None, use_bias=True, intra_drop=None, intra_activation=None, scheme_norm=0,
+                 scheme_init_std=None): # scheme_norm=tf.sparse_softmax
     if intra_drop is None:
         intra_drop = in_drop
     
@@ -143,50 +143,41 @@ def sp_cttn_head(seq, out_sz, adj_mat, activation, nb_nodes, in_drop=0.0, coef_d
         return activation(ret)
 
 # original graph convolution (Kipf et al.)
-def sp_gcn_head(seq, out_sz, adj_mat, activation, nb_nodes, in_drop=0.0, coef_drop=0.0, residual=False,
+class sp_gcn_head(torch.nn.Module):
+    def __init__(self, in_sz, out_sz, adj_mat=None, activation=torch.nn.functional.relu, nb_nodes=None, in_drop=0.0, coef_drop=0.0, residual=False,
                  nnz=None, use_bias=True, intra_drop=None, intra_activation=None, scheme_norm=None,
                  scheme_init_std=None):
-    if intra_drop is None:
-        intra_drop = in_drop
-    
-    with tf.name_scope('sp_gcn'):
+        super(sp_gcn_head, self).__init__()
+        self.intra_activation = intra_activation
+        self.activation = activation
+        if intra_drop is None:
+            intra_drop = in_drop
+        internal = list()
+        self.out_sz = out_sz
+        self.in_sz = in_sz
         if in_drop != 0.0:
-            seq = tf.nn.dropout(seq, 1.0 - in_drop)
-
-        # right operand SXW
-        seq_fts = tf.layers.conv1d(seq, out_sz, 1, use_bias=False)
-        if not(intra_activation is None):
-            seq_fts = intra_activation(seq_fts)
-        if intra_drop != 0.0:
-            seq_fts = tf.nn.dropout(seq_fts, 1.0 - intra_drop)
-
-        # left operand SXW        
-        scheme = adj_mat
-        if not(scheme_norm is None):
-            scheme = scheme_norm(scheme)
-        if coef_drop != 0.0:
-            scheme = tf.SparseTensor(indices=scheme.indices,
-                    values=tf.nn.dropout(scheme.values, 1.0 - coef_drop),
-                    dense_shape=scheme.dense_shape)
-        scheme = tf.sparse_reshape(scheme, [nb_nodes, nb_nodes])
-        seq_fts = tf.squeeze(seq_fts)
-        vals = tf.sparse_tensor_dense_matmul(scheme, seq_fts)
-        vals = tf.expand_dims(vals, axis=0)
-        vals.set_shape([1, nb_nodes, out_sz])
-
-        # bias
-        if use_bias:
-            ret = tf.contrib.layers.bias_add(vals)
-
-        # residual connection
+            drop = torch.nn.Dropout(in_drop)    
+            internal.append(drop)
+        seq_fts = torch.nn.Conv1d(in_sz,out_sz,kernel_size=1,bias=use_bias)
+        internal.append(seq_fts)
+        self.shortcut = False
         if residual:
-            if seq.shape[-1] != ret.shape[-1]:
-                ret = ret + conv1d(seq, ret.shape[-1], 1)
-            else:
-                seq_fts = ret + seq
+            self.shortcut = True
+            if self.out_size != self.in_sz:
+                self.conv_extra = torch.nn.Conv1d(in_sz,out_sz,kernel_size=1)
+        self.sequential = torch.nn.Sequential(*internal)
+        
 
-        # activation
-        return activation(ret)
+    def forward(self,input):
+        out = self.sequential(input)
+        if not(self.intra_activation is None):
+            out = self.intra_activation(out)
+        if self.shortcut:
+            if self.out_size != self.in_sz:
+                out = out + self.conv_extra(input)
+            else:
+                out = out + input
+        return self.activation(out)
 
 # topology adaptative graph convolution (Du et al.)
 def sp_tagcn_head(seq, out_sz, adj_mat, activation, nb_nodes, in_drop=0.0, coef_drop=0.0, residual=False,
@@ -251,7 +242,7 @@ def sp_tagcn_head(seq, out_sz, adj_mat, activation, nb_nodes, in_drop=0.0, coef_
 
 # regular fully connected layer without using the graph
 class mlp_head(torch.nn.Module):
-    def __init__(self,in_sz, out_sz, adj_mat=None, activation=torch.nn.functional.relu, nb_nodes=None, in_drop=0.0, coef_drop=0.0, residual=False,
+    def __init__(self, in_sz, out_sz, adj_mat=None, activation=torch.nn.functional.relu, nb_nodes=None, in_drop=0.0, coef_drop=0.0, residual=False,
                  nnz=None, use_bias=True, intra_drop=None, intra_activation=None, scheme_norm=None,
                  scheme_init_std=None):
         super(mlp_head, self).__init__()
