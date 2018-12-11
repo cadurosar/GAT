@@ -1,0 +1,4 @@
+Namespace(activation='relu', cov=0.0, dataset='cora', hiddens=[500], indropout=0.5, intraactivation='None', leftdropout=0.0, model='mlp', nheads=[1, 1], nruns=1, patience=100, rightdropout=0.0, savebest=True, snorm='None', usebias=True, verbose=False)
+Test accuracy 1 runs: 0.44299996 +- 0.0
+Namespace(activation='relu', cov=0.0, dataset='cora', hiddens=[500], indropout=0.5, intraactivation='None', leftdropout=0.0, model='mlp', nheads=[1, 1], nruns=100, patience=100, rightdropout=0.0, savebest=True, snorm='None', usebias=True, verbose=False)
+Test accuracy 100 runs: 0.54326 +- 0.010515366

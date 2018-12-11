@@ -1,5 +1,6 @@
 import numpy as np
 import tensorflow as tf
+import torch
 
 conv1d = tf.layers.conv1d
 
@@ -249,57 +250,37 @@ def sp_tagcn_head(seq, out_sz, adj_mat, activation, nb_nodes, in_drop=0.0, coef_
         return activation(ret)
 
 # regular fully connected layer without using the graph
-import torch
 class mlp_head(torch.nn.Module):
-    def __init__(seq, in_sz, out_sz, adj_mat=None, activation=torch.nn.ReLU, nb_nodes=None, in_drop=0.0, coef_drop=0.0, residual=False,
+    def __init__(self,in_sz, out_sz, adj_mat=None, activation=torch.nn.functional.relu, nb_nodes=None, in_drop=0.0, coef_drop=0.0, residual=False,
                  nnz=None, use_bias=True, intra_drop=None, intra_activation=None, scheme_norm=None,
                  scheme_init_std=None):
+        super(mlp_head, self).__init__()
+        self.intra_activation = intra_activation
+        self.activation = activation
         if intra_drop is None:
             intra_drop = in_drop
         internal = list()
+        self.out_sz = out_sz
+        self.in_sz = in_sz
         if in_drop != 0.0:
-            drop = torch.nn.Dropout(1.0-in_drop)
+            drop = torch.nn.Dropout(in_drop)    
             internal.append(drop)
-        seq_fts = torch.nn.Conv1D(in_sz,out_sz,kernel_size=1,use_bias=use_bias)
+        seq_fts = torch.nn.Conv1d(in_sz,out_sz,kernel_size=1,bias=use_bias)
         internal.append(seq_fts)
-        shortcut = False
+        self.shortcut = False
         if residual:
-            shortcut = True
-            if out_size != in_sz:
-                
+            self.shortcut = True
+            if self.out_size != self.in_sz:
+                self.conv_extra = torch.nn.Conv1d(in_sz,out_sz,kernel_size=1)
+        self.sequential = torch.nn.Sequential(*internal)
 
-
-
-    def forward(input):
-
-def mlp_head(seq, out_sz, adj_mat=None, activation=tf.nn.relu, nb_nodes=None, in_drop=0.0, coef_drop=0.0, residual=False,
-                 nnz=None, use_bias=True, intra_drop=None, intra_activation=None, scheme_norm=None,
-                 scheme_init_std=None):
-    if intra_drop is None:
-        intra_drop = in_drop
-    
-    with tf.name_scope('mlp'):
-        if in_drop != 0.0:
-            seq = tf.nn.dropout(seq, 1.0 - in_drop)
-
-        # operation XW
-        seq_fts = tf.layers.conv1d(seq, out_sz, 1, use_bias=False)
-        if not(intra_activation is None):
-            seq_fts = intra_activation(seq_fts)
-        #if intra_drop != 0.0:
-        #    seq_fts = tf.nn.dropout(seq_fts, 1.0 - intra_drop)
-
-        # bias
-        if use_bias:
-            ret = tf.contrib.layers.bias_add(seq_fts)
-
-        # residual connection
-        if residual:
-            if seq.shape[-1] != ret.shape[-1]:
-                ret = ret + conv1d(seq, ret.shape[-1], 1)
+    def forward(self,input):
+        out = self.sequential(input)
+        if not(self.intra_activation is None):
+            out = self.intra_activation(out)
+        if self.shortcut:
+            if self.out_size != self.in_sz:
+                out = out + self.conv_extra(input)
             else:
-                seq_fts = ret + seq
-
-        # activation
-        return activation(ret)
-        
+                out = out + input
+        return self.activation(out)
