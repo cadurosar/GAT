@@ -57,7 +57,7 @@ batch_size = 1
 nb_epochs = 100000
 patience = args.patience
 lr = 0.005  # learning rate
-l2_coef = 0.0005  # weight decay
+l2_coef = 0.001  # weight decay
 hid_units = args.hiddens # numbers of hidden units per each attention head in each layer
 n_heads = args.nheads # additional entry for the output layer
 residual = False
@@ -150,9 +150,16 @@ def run_once(run_id):
                                 intra_drop=intra_drop_value, intra_activation=nonlinearity2,
                                 scheme_norm=scheme_norm, scheme_init_std=scheme_init_std,
                                 use_bias=use_bias)
+    def init_weights(m):
+        if type(m) == torch.nn.Linear or type(m) == torch.nn.Conv1d:
+            torch.nn.init.xavier_uniform_(m.weight)
+            m.bias.data.fill_(0.0)
+
+    local_model.apply(init_weights)
+
     print("starting")
     local_model.cuda()
-    optimizer = torch.optim.Adam(local_model.parameters(),lr=lr,weight_decay=l2_coef)
+    optimizer = torch.optim.Adam(local_model.parameters(),lr=lr,amsgrad=True)#,weight_decay=l2_coef)
 
     vlss_mn = np.inf
     vacc_mx = 0.0
@@ -177,7 +184,11 @@ def run_once(run_id):
             log_resh = logits.view(-1,nb_classes)
             lab_resh = lbl_in.view(-1, nb_classes)
             msk_resh = msk_in.view(-1)
-            loss_value_tr = model.masked_softmax_cross_entropy(log_resh, lab_resh, msk_resh)
+            values = [(v**2).sum()/2 for v in local_model.parameters()]
+            lossL2 = 0
+            for a in values:
+                lossL2 += a
+            loss_value_tr = model.masked_softmax_cross_entropy(log_resh, lab_resh, msk_resh) + l2_coef*lossL2
             acc_tr = model.masked_accuracy(log_resh, lab_resh, msk_resh)
             loss_value_tr.backward()
             optimizer.step()
@@ -199,7 +210,6 @@ def run_once(run_id):
                 msk_resh = msk_in.view(-1)
                 loss_value_vl = model.masked_softmax_cross_entropy(log_resh, lab_resh, msk_resh)
                 acc_vl = model.masked_accuracy(log_resh, lab_resh, msk_resh)
-                train_loss_avg += loss_value_tr
                 val_loss_avg += loss_value_vl
                 val_acc_avg += acc_vl
                 vl_step += 1
