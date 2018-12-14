@@ -6,7 +6,7 @@ import argparse as ap
 from multiprocessing import Pool
 import torch
 
-from models import MLP #SpGAT, SpGCT, SpGCTS, SpGCN, SpTAGCN,
+from models import MLP, SpGCN #SpGAT, SpGCT, SpGCTS, SpGCN, SpTAGCN,
 from utils import process
 import hashlib
 
@@ -80,7 +80,7 @@ attn_drop_value = args.leftdropout
 ffd_drop_value = args.indropout
 intra_drop_value = args.rightdropout
 if args.snorm == 'softmax':
-    scheme_norm = tf.sparse_softmax
+    scheme_norm = 0 # tf.sparse_softmax
     #scheme_norm = lambda x: tf.sparse_transpose(tf.sparse_softmax(tf.sparse_transpose(x)))
 elif args.snorm == 'sum':
     def sparse_norm(x):
@@ -138,7 +138,8 @@ val_mask = val_mask[np.newaxis]
 test_mask = test_mask[np.newaxis]
 
 biases = process.preprocess_adj_bias(adj) if args.model == 'gat' else process.preprocess_adj(adj)
-nnz = len(biases[1])
+nnz = 0#len(biases[1])
+biases = torch.cuda.FloatTensor(biases.todense())
 
 def run_once(run_id):
 

@@ -152,26 +152,36 @@ class sp_gcn_head(torch.nn.Module):
         self.activation = activation
         if intra_drop is None:
             intra_drop = in_drop
-        internal = list()
         self.out_sz = out_sz
         self.in_sz = in_sz
-        if in_drop != 0.0:
-            drop = torch.nn.Dropout(in_drop)    
-            internal.append(drop)
-        seq_fts = torch.nn.Conv1d(in_sz,out_sz,kernel_size=1,bias=use_bias)
-        internal.append(seq_fts)
+        self.input_drop = torch.nn.Dropout(in_drop)    
+        self.intra_drop = torch.nn.Dropout(intra_drop)    
+        
+        # left operation DXW (diffusion)
+        self.scheme = adj_mat # adj_mat must be pre processed
+        self.scheme_drop = torch.nn.Dropout(coef_drop)
+
+        # right operation DXW (weight)
+        self.conv1 = torch.nn.Conv1d(in_sz,out_sz,kernel_size=1,bias=use_bias)
+
         self.shortcut = False
         if residual:
             self.shortcut = True
             if self.out_size != self.in_sz:
                 self.conv_extra = torch.nn.Conv1d(in_sz,out_sz,kernel_size=1)
-        self.sequential = torch.nn.Sequential(*internal)
         
 
     def forward(self,input):
-        out = self.sequential(input)
+        out = self.input_drop(input)
+
+        scheme = self.scheme_drop(self.scheme)
+
+        out = self.conv1(out)
         if not(self.intra_activation is None):
             out = self.intra_activation(out)
+        out = self.intra_drop(out)
+
+        out = torch.bmm(scheme,out)
         if self.shortcut:
             if self.out_size != self.in_sz:
                 out = out + self.conv_extra(input)

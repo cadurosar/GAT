@@ -168,13 +168,14 @@ def normalize_adj(adj):
     d_inv_sqrt = np.power(rowsum, -0.5).flatten()
     d_inv_sqrt[np.isinf(d_inv_sqrt)] = 0.
     d_mat_inv_sqrt = sp.diags(d_inv_sqrt)
-    return adj.dot(d_mat_inv_sqrt).transpose().dot(d_mat_inv_sqrt).tocoo()
+    return adj.dot(d_mat_inv_sqrt).transpose().dot(d_mat_inv_sqrt)#.tocoo()
 
 
 def preprocess_adj(adj):
     """Preprocessing of adjacency matrix for simple GCN model and conversion to tuple representation."""
     adj_normalized = normalize_adj(adj + sp.eye(adj.shape[0]))
-    return sparse_to_tuple(adj_normalized)
+    return adj_normalized
+    #return sparse_to_tuple(adj_normalized)
 
 def preprocess_adj_bias(adj):
     num_nodes = adj.shape[0]
